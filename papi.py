@@ -1,6 +1,8 @@
 #/usr/bin/env ipython
 import requests
 
+from misc import objects
+
 
 PIXIV_CLIENTS = {
     "android 4.6.0": {
@@ -153,6 +155,8 @@ class PAPIClient:
 
         self.auth_force(r["access_token"], r["refresh_token"])
 
+    def emojis(self):
+        r = self.get("/emojis.json")
+        xresp = self.xresp = [objects.Emoji(emoji) for emoji in r["response"]]
 
-if __name__ == "__main__":
-    c = PAPIClient()
+        return xresp
