@@ -1,5 +1,6 @@
 #/usr/bin/env ipython
 import requests
+import six
 
 from misc import objects
 
@@ -72,6 +73,10 @@ class PAPIClient:
 
         if "has_error" in j and j["has_error"]:
             msg = j["errors"]["system"]["message"]
+
+            if not isinstance(msg, six.string_types):
+                msg = str(msg)
+
             _msg = msg.lower()
 
             if ("access token" in _msg and "invalid" in _msg):
