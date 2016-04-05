@@ -1,7 +1,8 @@
 from __future__ import division
 
 import re
-from .helpers import atoi
+
+from papi.helpers import atoi
 
 
 image_size_rx = re.compile(r"(?:px|max)_(\d+)x(\d+)?")
@@ -51,7 +52,7 @@ class ImageUrls(PObject):
     }
 
     def __delattr__(self, size):
-        if key in self.images[size]:
+        if size in self.images:
             del self.images[size]
 
     def __setattr__(self, size, url):

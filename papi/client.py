@@ -1,69 +1,36 @@
-#/usr/bin/env ipython
 import requests
-import six
 
-from misc import objects
-
-
-PIXIV_CLIENTS = {
-    "android 4.6.0": {
-        "user_agent": "PixivAndroidApp/4.6.0",
-        "client_id": "BVO2E8vAAikgUBW8FYpi6amXOjQj",
-        "client_secret": "LI1WsFUDrrquaINOdarrJclCrkTtc3eojCOswlog",
-        "access_token": "8mMXXWT9iuwdJvsVIvQsFYDwuZpRCMePeyagSh30ZdU",
-    },
-    "ios 5.1.1": {
-        "user_agent": "PixivIOSApp/5.1.1",
-        "client_id": "bYGKuGVw91e0NMfPGp44euvGt59s",
-        "client_secret": "HP3RmkgAmEGro0gn1x9ioawQE8WMfvLXDz3ZqxpK",
-        "access_token": None,
-    },
-}
+from papi.exceptions import (
+    PAPIAuthExpired, PAPIAuthFailed, PAPIException, PAPIMaintenance,
+)
+from papi.helpers import string_types
+from papi.objects import Emoji
+from papi.pixiv_app import android
 
 
-class PAPIException(Exception):
-    pass
+class PAPIClient(object):
+    URL = "https://public-api.secure.pixiv.net/v1"
+    AUTH_URL = "https://oauth.secure.pixiv.net/auth/token"
+    REFERER = "https://public-api.secure.pixiv.net/"
 
-
-class PAPIMaintenance(PAPIException):
-    pass
-
-
-class PAPIAuth(PAPIException):
-    pass
-
-
-class PAPIAuthFailed(PAPIAuth):
-    pass
-
-
-class PAPIAuthExpired(PAPIAuth):
-    pass
-
-
-class PAPIClient:
-    url = "https://public-api.secure.pixiv.net/v1"
-    auth_url = "https://oauth.secure.pixiv.net/auth/token"
-    referrer = "https://public-api.secure.pixiv.net/"
-
-    def __init__(self, client=PIXIV_CLIENTS["android 4.6.0"]):
-        self.user_agent = client["user_agent"]
-        self.client_id = client["client_id"]
-        self.client_secret = client["client_secret"]
-        self.access_token = client["access_token"]
+    def __init__(self, app=android):
+        self.app = android
+        self.access_token = app.access_token
         self.refresh_token = None
 
         self.s = requests.Session()
         self.s.headers.update({
-            "User-Agent": self.user_agent,
-            "Referer": self.referrer,
+            "User-Agent": self.app.user_agent,
+            "Referer": self.REFERER,
         })
 
     def request(self, method, url, error_cls=PAPIException, **kwargs):
-        """Performs generic request, parses json and raises exceptions on API
+        """
+        Performs generic request, parses json and raises exceptions on API
         errors (if any).
 
-        `self.resp` holds cached response."""
+        `self.resp` holds cached response.
+        """
         resp = self.resp = self.s.request(method, url, **kwargs)
 
         if resp.content == "maintenance":
@@ -74,7 +41,7 @@ class PAPIClient:
         if "has_error" in j and j["has_error"]:
             msg = j["errors"]["system"]["message"]
 
-            if not isinstance(msg, six.string_types):
+            if not isinstance(msg, string_types):
                 msg = str(msg)
 
             _msg = msg.lower()
@@ -99,10 +66,10 @@ class PAPIClient:
         :returns:      Response data as dictionary (parsed json).
         """
         try:
-            return self.request('GET', self.url + path, **kwargs)
-        except PAPIAuthExpired as e:
+            return self.request('GET', self.URL + path, **kwargs)
+        except PAPIAuthExpired:
             if not retry:
-                raise e
+                raise
 
             self.auth_refresh()
 
@@ -110,8 +77,8 @@ class PAPIClient:
 
     def _login_payload(self, username, password):
         return {
-            "client_id": self.client_id,
-            "client_secret": self.client_secret,
+            "client_id": self.app.client_id,
+            "client_secret": self.app.client_secret,
             "grant_type": "password",
             "username": username,
             "password": password,
@@ -119,8 +86,8 @@ class PAPIClient:
 
     def _refresh_token_payload(self):
         return {
-            "client_id": self.client_id,
-            "client_secret": self.client_secret,
+            "client_id": self.app.client_id,
+            "client_secret": self.app.client_secret,
             "grant_type": "refresh_token",
             "refresh_token": self.refresh_token,
         }
@@ -140,7 +107,7 @@ class PAPIClient:
         On success `self.user` holds reference to the current user."""
         r = self.request(
             'POST',
-            self.auth_url,
+            self.AUTH_URL,
             error_cls=PAPIAuthFailed,
             data=self._login_payload(username, password)
         )["response"]
@@ -152,7 +119,7 @@ class PAPIClient:
         """Refresh OAuth access token."""
         r = self.request(
             'POST',
-            self.auth_url,
+            self.AUTH_URL,
             error_cls=PAPIAuthFailed,
             data=self._refresh_token_payload()
         )["response"]
@@ -162,6 +129,6 @@ class PAPIClient:
 
     def emojis(self):
         r = self.get("/emojis.json")
-        xresp = self.xresp = [objects.Emoji(emoji) for emoji in r["response"]]
+        xresp = self.xresp = [Emoji(emoji) for emoji in r["response"]]
 
         return xresp
