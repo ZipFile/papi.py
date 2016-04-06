@@ -16,6 +16,7 @@ class PAPIClient(object):
     def __init__(self, app=android):
         self.app = android
         self.access_token = app.access_token
+        self.device_token = None
         self.refresh_token = None
 
         self.s = requests.Session()
@@ -79,6 +80,7 @@ class PAPIClient(object):
         return {
             "client_id": self.app.client_id,
             "client_secret": self.app.client_secret,
+            # "device_token": "pixiv",
             "grant_type": "password",
             "username": username,
             "password": password,
@@ -92,10 +94,11 @@ class PAPIClient(object):
             "refresh_token": self.refresh_token,
         }
 
-    def auth_force(self, access_token, refresh_token):
+    def auth_force(self, access_token, refresh_token, device_token=None):
         """Provide custom tokens bypassing authentication by password."""
         self.access_token = access_token
         self.refresh_token = refresh_token
+        self.device_token = device_token
 
         self.s.headers.update({
             "Authorization": "Bearer " + self.access_token,
@@ -113,7 +116,9 @@ class PAPIClient(object):
         )["response"]
         self.user = r["user"]
 
-        self.auth_force(r["access_token"], r["refresh_token"])
+        self.auth_force(
+            r["access_token"], r["refresh_token"], r.get("device_token"),
+        )
 
     def auth_refresh(self):
         """Refresh OAuth access token."""
@@ -125,7 +130,9 @@ class PAPIClient(object):
         )["response"]
         self.user = r["user"]
 
-        self.auth_force(r["access_token"], r["refresh_token"])
+        self.auth_force(
+            r["access_token"], r["refresh_token"], r.get("device_token"),
+        )
 
     def emojis(self):
         r = self.get("/emojis.json")
