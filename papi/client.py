@@ -58,7 +58,8 @@ class PAPIClient(object):
         return j
 
     def get(self, path, retry=True, **kwargs):
-        """Perform GET request to the API.
+        """
+        Perform GET request to the API.
 
         :param path:   API path.
         :param retry:  If token is invalid, call `self.auth_refresh()` and
@@ -95,7 +96,9 @@ class PAPIClient(object):
         }
 
     def auth_force(self, access_token, refresh_token, device_token=None):
-        """Provide custom tokens bypassing authentication by password."""
+        """
+        Provide custom tokens bypassing authentication by password.
+        """
         self.access_token = access_token
         self.refresh_token = refresh_token
         self.device_token = device_token
@@ -105,9 +108,11 @@ class PAPIClient(object):
         })
 
     def auth_login(self, username, password):
-        """Perform OAuth authentication.
+        """
+        Perform OAuth authentication.
 
-        On success `self.user` holds reference to the current user."""
+        On success `self.user` holds reference to the current user.
+        """
         r = self.request(
             'POST',
             self.AUTH_URL,
@@ -121,7 +126,9 @@ class PAPIClient(object):
         )
 
     def auth_refresh(self):
-        """Refresh OAuth access token."""
+        """
+        Refresh OAuth access token.
+        """
         r = self.request(
             'POST',
             self.AUTH_URL,
@@ -135,6 +142,9 @@ class PAPIClient(object):
         )
 
     def emojis(self):
+        """
+        Fetch list of available emojis.
+        """
         r = self.get("/emojis.json")
         xresp = self.xresp = [Emoji(emoji) for emoji in r["response"]]
 
