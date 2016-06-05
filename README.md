@@ -27,7 +27,7 @@ params = {
   "date":"2015-05-03",
   "image_sizes": "large"
 }
-resp = client.get("/ranking/all.json", params=params)
+resp = client.get("/v1/ranking/all", params=params)
 urls = list(map(lambda x: x["work"]["image_urls"]["large"], resp["response"][0]["works"]))
 print("\n".join(urls))
 ```

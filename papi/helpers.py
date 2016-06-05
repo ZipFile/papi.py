@@ -2,8 +2,10 @@ import sys
 
 
 if sys.version_info[0] == 2:
+    from urlparse import urljoin
     string_types = basestring,
 else:
+    from urllib.parse import urljoin
     string_types = str,
 
 

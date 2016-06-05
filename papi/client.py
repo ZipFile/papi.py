@@ -3,25 +3,25 @@ import requests
 from papi.exceptions import (
     PAPIAuthExpired, PAPIAuthFailed, PAPIException, PAPIMaintenance,
 )
-from papi.helpers import string_types
-from papi.objects import Emoji
+from papi.helpers import string_types, urljoin
 from papi.pixiv_app import android
 
 
 class PAPIClient(object):
-    URL = "https://public-api.secure.pixiv.net/v1"
+    URL = "https://public-api.secure.pixiv.net/"
     AUTH_URL = "https://oauth.secure.pixiv.net/auth/token"
     REFERER = "https://public-api.secure.pixiv.net/"
+    NO_PROFILE_IMG = "http://source.pixiv.net/common/images/no_profile.png"
 
     def __init__(self, app=android):
-        self.app = android
-        self.access_token = app.access_token
+        self.app = app
+        self.access_token = app.oauth2.access_token
         self.device_token = None
         self.refresh_token = None
 
         self.s = requests.Session()
+        self.s.headers.update(self.app_headers)
         self.s.headers.update({
-            "User-Agent": self.app.user_agent,
             "Referer": self.REFERER,
         })
 
@@ -68,7 +68,7 @@ class PAPIClient(object):
         :returns:      Response data as dictionary (parsed json).
         """
         try:
-            return self.request('GET', self.URL + path, **kwargs)
+            return self.request('GET', urljoin(self.URL, path), **kwargs)
         except PAPIAuthExpired:
             if not retry:
                 raise
@@ -77,10 +77,42 @@ class PAPIClient(object):
 
             return self.get(path, False, **kwargs)
 
+    @property
+    def app(self):
+        return self._app
+
+    @app.setter
+    def app(self, app):
+        device = app.device
+        headers = {
+            "App-Version": app.version,
+        }
+
+        if device and device.os:
+            os = device.os
+            headers["App-OS"] = os.name.lower()
+            headers["App-OS-Version"] = os.version
+            headers["User-Agent"] = " ".join([
+                "/".join([app.name, app.version]),
+                "(%s %s; %s)" % (
+                    os.name, os.version, device.model
+                )
+            ])
+        else:
+            headers["User-Agent"] = "/".join([app.name, app.version])
+
+        self._app = app
+        self._app_headers = headers
+
+    @property
+    def app_headers(self):
+        return self._app_headers
+
     def _login_payload(self, username, password):
+        oauth2 = self.app.oauth2
         return {
-            "client_id": self.app.client_id,
-            "client_secret": self.app.client_secret,
+            "client_id": oauth2.client_id,
+            "client_secret": oauth2.client_secret,
             # "device_token": "pixiv",
             "grant_type": "password",
             "username": username,
@@ -88,9 +120,10 @@ class PAPIClient(object):
         }
 
     def _refresh_token_payload(self):
+        oauth2 = self.app.oauth2
         return {
-            "client_id": self.app.client_id,
-            "client_secret": self.app.client_secret,
+            "client_id": oauth2.client_id,
+            "client_secret": oauth2.client_secret,
             "grant_type": "refresh_token",
             "refresh_token": self.refresh_token,
         }
@@ -140,12 +173,3 @@ class PAPIClient(object):
         self.auth_force(
             r["access_token"], r["refresh_token"], r.get("device_token"),
         )
-
-    def emojis(self):
-        """
-        Fetch list of available emojis.
-        """
-        r = self.get("/emojis.json")
-        xresp = self.xresp = [Emoji(emoji) for emoji in r["response"]]
-
-        return xresp
